@@ -12,3 +12,14 @@ list.files() ## Revisamos con que carpetas estamos trabajando#
 require(pacman) 
 p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn) # Llamamos las librerias  necesarias para el taller##
 
+#########################################1.Regresiones#######################################################
+
+####################################################2. Datos espaciales######################################################
+
+## 2.1  Descargar los datos##
+
+available_features() %>% head(100)
+available_tags("amenity") %>% head(20)
+opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el polÃ­gono de Armenia##
+
+

@@ -10,7 +10,11 @@ list.files() ## Revisamos con que carpetas estamos trabajando#
 
 ###Instalar librerias##
 require(pacman) 
-p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn) # Llamamos las librerias  necesarias para el taller##
+install.packages("tm") #Tm y wordcloud se descargan para crear la nube de palabras
+install.packages("wordcloud")
+p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, tm,wordcloud,dplyr) # Llamamos las librerias  necesarias para el taller##
+
+
 
 #########################################1.Regresiones#######################################################
 
@@ -56,9 +60,9 @@ leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
 
 ###################################3. Web-scraping y procesamiento de texto#####################################################
 
-library(rvest)
+
 browseURL("https://es.wikipedia.org/wiki/Departamentos_de_Colombia") #Para el punto 3 vamos a usar la pagina de departamentos de Colombia 
-vignette("rvest")
+
 
 ##3.1 Crear objeto html##
 my_url = "https://es.wikipedia.org/wiki/Departamentos_de_Colombia" #Guardo la url de la pagina
@@ -73,16 +77,35 @@ my_html %>% html_nodes(xpath = '//*[@id="firstHeading"]/span') %>% #En la pag le
   html_text() #Visualizamos el elemento extraido
 
 #3.3 Extraer la tabla que contiene los departamentos de Colombia y exportar
-library(rio)
+
 my_table = my_html %>% html_table() #Descargo todas las tablas de la pagina
 View(my_table) #Observo cuantas filas y columnas tienen las tablas descargadas para encontrar la de departamentos
 View(my_table[[4]]) #Verificamos que la tabla 5 corresponde a la tabla de departamentos
 departamentos= my_table[[4]]
 export(x=departamentos , file="output/tabla_departamento.xlsx")
+
 #3.4 Extraer los parrafos del documento (elementos con etiqueta p) y generar nube de palabras##
 
 Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que estan con la etiqueta p
 Parrafos
+as.character(Parrafos)
+
+
+docs <- Corpus(VectorSource(Parrafos)) 
+docs <- docs %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace)
+docs <- tm_map(docs, content_transformer(tolower))
+docs <- tm_map(docs, removeWords, stopwords("spanish"))
+
+dtm <- TermDocumentMatrix(docs) 
+matrix <- as.matrix(dtm) 
+words <- sort(rowSums(matrix),decreasing=TRUE) 
+df <- data.frame(word = names(words),freq=words)
+set.seed(1234) # for reproducibility 
+wordcloud(words = df$word, freq = df$freq, min.freq = 2, max.words=50, random.order=FALSE, rot.per=0.15,colors=brewer.pal(8, "Dark2") [3:5])
+png("output/nube_palabras.png")
 
 
 

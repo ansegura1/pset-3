@@ -1,0 +1,191 @@
+# PRACTICA PARA TALLER 4: Webscraping en Twitter
+# Esta version: Abril 2022
+# Autores: Mariana Crane y Andres Ham
+
+# Deja el espacio de trabajo en blanco
+rm(list=ls(all=T))
+
+# Paquetes necesarios (si no los tienen, instalar)
+#install.packages(c("rtweet", "readr",))
+library(readr)
+library(dplyr)
+library(tidyr)
+library(rtweet)
+library(tidytext)
+library(ggplot2)
+library(wordcloud)
+library(ggraph)
+library(igraph)
+library(lubridate)
+library(httpuv)
+library(stringi)
+
+# Creando la autenticación para ingresar a la API de twitter:
+# http://127.0.0.1:1410 debe ir en la parte de callback URL al momento de configurar la aplicación 
+# install.packages("httpuv") esta libraria debe estar instalada antes de crear los tokens
+
+# Ruta
+setwd("/Users/ham_andres/Library/CloudStorage/OneDrive-UniversidaddeLosAndes/Ciencia de Datos/2 Planificacion/Semana 11")
+
+#Autorización para descargar datos
+create_token(app="MCAP2_20202",
+             consumer_key = "T9fLGmzA9Qt0T2JqENAt4gKMS",
+             consumer_secret = "i4Y2O5Pe2IFuGD2UkX358EtQkVjUsBMVCi40VTncVXpVdWKjhT",
+             access_token = "31338559-OdSizi0HDgaqJqYU22TTCLtNmdOHnK9VBsU5qSoWO",
+             access_secret = "mmVuP31aVgEMonrEXtO2QYVTKzN7OCXCYLBOUNThYbwFJ") 
+
+# 2A: Tendencias
+col<-get_trends("Colombia", exclude_hashtags=TRUE)
+
+# Se queda con el Top10 que tiene info en tweet volume
+col_trends<-data.frame(col$trend,col$tweet_volume)
+col_trends<-na.omit(col_trends)
+col_trends<-col_trends[order(col_trends$col.tweet_volume, decreasing=TRUE), ]
+col_top10<-col_trends[1:10,]
+
+# Grafico top 10 
+#pdf("./tendencias.pdf")
+ggplot(col_top10, aes(x=reorder(col.trend,col.tweet_volume), y=col.tweet_volume)) + 
+  geom_bar(stat = "identity", fill="purple3")+
+  geom_text(aes(label=scales::comma(col.tweet_volume)), vjust=1.6, color="white", size=2)+
+  theme_minimal() + ggtitle("Tendencias Twitter 9 noviembre 2021") + xlab("Tendencia") + ylab("Tweets") +
+  theme(axis.text = element_text(size = 7)) + theme(plot.title = element_text(hjust = 0.5)) +
+  scale_y_continuous(labels = scales::comma)
+#dev.off()
+# Pueden sacar un cuadro o una grafico con las tendencias o contarnos en palabras en el word
+
+
+# 2B: Cuentas
+Andres<-get_timeline("ahamg", n=2000)
+Harry<-get_timeline("Harry_Styles", n=2000)
+Bichota<-get_timeline("karolg", n=2000)
+
+# 2C: Arma bases grandes y las guarda
+names(Andres)
+
+# Guarda en formato CSV
+write_as_csv(Andres, "./ahamg", prepend_ids = TRUE, na = "", fileEncoding = "UTF-8")
+# Revisen las variables en estas bases. ¿Todo sirve?
+
+## Limpieza de la bases de tweets (esto usa dplyr y tidyr)
+
+## Andres Ham
+Andres_clean<-Andres %>%
+  select(created_at,text,source, is_retweet, reply_to_status_id) %>%
+  mutate(text=iconv(text, from="UTF-8", to="latin1"),
+         text=gsub(pattern = "[[:space:]]", replacement = " ", text), #Remover espacios
+         text=gsub(pattern = "[[:punct:]]|[[:cntrl:]]", replacement = "", text), #Remover signos de puntuación
+         text=gsub(pattern = "http.{,15}$", replacement = "", text),
+         text=gsub(pattern = "[[:digit:]]", replacement = "", text)) #Remover números
+Andres_clean$text<-tolower(Andres_clean$text)
+
+# Todo sirve?
+View(Andres_clean)
+
+# 3A: Followers (nivel de influencing)
+aux1<-data.frame(users_data(Andres))
+followers_1<-mean(aux1$followers_count)
+
+aux2<-data.frame(users_data(Harry))
+followers_2<-mean(aux2$followers_count)
+
+aux3<-data.frame(users_data(Bichota))
+followers_3<-mean(aux3$followers_count)
+
+influencing<-data.frame(c("Andrés Ham", "Harry Styles", "Karol G"),
+                        c(followers_1,followers_2,followers_3))
+names(influencing)<-c("persona","seguidores")
+
+#pdf("./influencing.pdf")
+ggplot(influencing, aes(x=reorder(persona,seguidores), y=seguidores)) +                       #Escoge data, ejes y ordena
+  geom_bar(stat = "identity", fill="blue")+                                                   # Le dice que sea de barras 
+  geom_text(aes(label=scales::comma(seguidores)), vjust=1.6, color="white", size=3)+          # Le pone etiquetas a las barras 
+  theme_minimal() + ggtitle("Seguidores cuentas políticas") + xlab("") + ylab("Seguidores") + # Pone titulos
+  theme(axis.text = element_text(size = 7)) + theme(plot.title = element_text(hjust = 0.5)) + # Opciones de visualizacion
+  scale_y_continuous(labels = scales::comma)                                                  # Opciones de eje Y
+#dev.off()
+
+# 3B: Nubes de palabras y bigramas
+stop_words_1<- get_stopwords(language = "es") #Cargar stop words
+stop_words_2<- get_stopwords(language = "en") #Cargar stop words
+
+### Andres Ham ###
+tweets_ahamg_word<-Andres_clean %>%
+  select(created_at, text) %>% #Seleccionar variables relevantes
+  unnest_tokens(palabra, text, token="words", to_lower = T) %>% #Tokenizar cada palabra para analizarlas como elementos individuales y convertirlas a minúsculas
+  anti_join(stop_words_1, by = c("palabra"="word")) %>% #Quitar stopwords
+  anti_join(stop_words_2, by = c("palabra"="word")) %>% #Quitar stopwords
+  filter(!(palabra %in% c("rt","ahamg"))) %>% #Quitar rts y menciones de usuario
+  group_by(palabra) %>% 
+  summarise(cuenta=n()) #Contar frecuencia por palabra 
+
+pdf("./nube_ahamg.pdf")
+  wordcloud(tweets_ahamg_word$palabra, tweets_ahamg_word$cuenta, 
+          random.order = F, min.freq = 15,colors=brewer.pal(5, name = "Blues")[3:5]) #Nube de palabras para las que tienen frecuencia superior a 20
+dev.off()
+
+# Desde donde twittean?
+ggplot(Andres_clean, aes(x=months(created_at))) + #Separar por fuente de creación por mes 
+  geom_bar(aes(fill=source), position = "stack") + #Especificar tipo de gráfica 
+  facet_grid(.~ is_retweet, labeller = label_both) + #Crear grids distintos para retweets y tweets del usuario
+  labs(x="mes") + #Definir labels del eje x
+  ggtitle("Fuente de creación de tweets")+
+  scale_fill_brewer(type = "qual", palette = 3) +#Gráfica para ver el lugar de creación del tweet por mes
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = 90), plot.title = element_text(hjust = 0.5))
+
+
+# 3C: SENTIMENT ANALYSIS
+is_retweet <- c("Tweet", "ReTweet")
+names(is_retweet) <- c("FALSE", "TRUE")
+
+### Andres Ham ###
+sentiment_rank<-data.frame(var1=read_lines("fullStrengthLexicon.txt")) #Cargar rango de sentimientos fuertes como base de datos
+
+sentiment_rank<-sentiment_rank %>%
+  separate(var1, into = c("palabra", "index", "rank_1", "rank_2"), sep = "\t", fill = "right") %>% #Separar columna en varias variables
+  select(palabra, rank_1) %>% #Seleccionar variables relevantes
+  mutate(rank_1=ifelse(rank_1=="pos", 1, -1)) #Encode positivo = 1, negativo = -1 
+
+tema_punto3 <- theme(axis.text.x = element_text(angle=65, vjust=0.6), 
+                     plot.title = element_text(hjust=0.5, face="bold"),
+                     panel.background=element_rect(fill="white"),
+                     panel.grid.major.y = element_line(colour = "grey"),
+                     axis.line =element_line("black"),
+                     legend.position = "bottom")
+
+#pdf("./desarrollo/sentiment1_ahamg.pdf")
+Andres_clean %>%
+  select(created_at, text) %>%
+  unnest_tokens(palabra, text, token="words", to_lower = T) %>% #Tokenizar frases por palabras y pasar a minúsculas
+  inner_join(sentiment_rank, by=c("palabra")) %>% # Merge de palabras con rango de sentimiento
+  filter(!is.na(rank_1)) %>% #Remover las palabras no clasificadas
+  mutate(mes=months(created_at)) %>% #Extraer el més en que fue creado el tweet
+  group_by(semana=week(created_at)) %>% #Extraer la semana
+  summarise(rank=sum(rank_1),
+            mes=last(mes)) %>%
+  ggplot(aes(x=semana, y=rank,  fill=mes)) +
+  geom_col() +# Tipo de gráfico
+  tema_punto3
+#dev.off()
+
+#pdf("./desarrollo/sentiment2_ahamg.pdf")
+Andres_clean %>%
+  select(created_at, text) %>%
+  unnest_tokens(palabra, text, token="words", to_lower = T) %>%
+  inner_join(sentiment_rank, by=c("palabra")) %>%
+  filter(!is.na(rank_1)) %>%
+  group_by(palabra) %>%
+  summarise(total_rank=sum(rank_1)) %>%
+  ungroup() %>%
+  sample_n(25) %>% #Sacar una muestra de tamaño 25
+  arrange(total_rank) %>% #Organizar por rango 
+  mutate(ind_col=factor(ifelse(total_rank>=0, "Positivo", "Negativo")), #Si el rango total es positivo, definir como positivo
+         palabra=factor(palabra, palabra)) %>% #Convertir palabra en variable categórica
+  ggplot(aes(y=total_rank, x=palabra, fill=ind_col)) +
+  geom_col() +
+  coord_flip() + #Cambiar orden de los ejes 
+  theme_minimal()
+#dev.off()
+
+# 3D: Analisis -> Bonitos los resultados, pero que nos dicen al final?

@@ -53,3 +53,24 @@ leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
 
 #2.4 Exportar mapa##
 
+
+###################################3. Web-scraping y procesamiento de texto#####################################################
+
+library(rvest)
+browseURL("https://es.wikipedia.org/wiki/Departamentos_de_Colombia") #Para el punto 3 vamos a usar la pagina de departamentos de Colombia 
+vignette("rvest")
+
+##3.1 Crear objeto html##
+my_url = "https://es.wikipedia.org/wiki/Departamentos_de_Colombia" #Guardo la url de la pagina
+browseURL(my_url)
+
+my_html = read_html(my_url)#Guardo la Html
+class(my_html) ## verificar que quedÃ³ guardada   como un objeto xml_document#
+
+##3.2  extraer el tÃ­tulo de la pÃ¡gina##
+
+my_html %>% html_nodes(xpath = '//*[@id="firstHeading"]/span') %>% #En la pag le damos inspeccionar al elemento y posteriormente le damos copiar Xpath
+  html_text() #Visualizamos el elemento extraido
+
+
+

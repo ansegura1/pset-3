@@ -1,0 +1,28 @@
+{
+    "id": "3D06F541",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1670129308671.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "id": "ed6fee9b656a4d4fb33020507cc183dd",
+        "name": "my_table",
+        "title": "my_table",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2012362629008,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1670129308671,
+    "read_only": false,
+    "read_only_alternatives": []
+}

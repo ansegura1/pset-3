@@ -71,6 +71,10 @@ class(my_html) ## verificar que quedÃ³ guardada   como un objeto xml_document#
 
 my_html %>% html_nodes(xpath = '//*[@id="firstHeading"]/span') %>% #En la pag le damos inspeccionar al elemento y posteriormente le damos copiar Xpath
   html_text() #Visualizamos el elemento extraido
+#3.4 Extraer los parrafos del documento (elementos con etiqueta p) y generar nube de palabras##
+
+Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que estan con la etiqueta p
+Parrafos
 
 
 

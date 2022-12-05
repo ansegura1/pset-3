@@ -24,7 +24,7 @@ p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, 
 
 available_features() %>% head(100)
 available_tags("amenity") %>% head(20)
-opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el polÃ­gono de Armenia##
+opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el poligono de Armenia##
 ## Datos de los restaurantes en Armenia
 osm = opq(bbox = getbb("Armenia Colombia")) %>%
   add_osm_feature(key="amenity" , value="restaurant") #En internet encontramos cÃ³mo encontrar los datos de los restaurantes en openstreetmap. (https://wiki.openstreetmap.org/wiki/Tag:amenity%3Drestaurant)
@@ -43,21 +43,37 @@ parques <- opq(bbox = getbb("Armenia Colombia")) %>%
 ## 2.2 Visualizar  los datos##
 
 #restaurantes
-leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
+g1<-leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
 #parques
-leaflet() %>% addTiles() %>% addPolygons(data=parques, col="blue")
-
+g2<-leaflet() %>% addTiles() %>% addPolygons(data=parques, col="blue")
 
 #2.3 Geocodificar direcciones## 
 
 #Museo del oro Qumbaya
 MOQ <- geocode_OSM("Museo del Oro Quimbaya, Armenia", as.sf=T) 
 #Pintar el punto del museo del Oro Quimbaya
-leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
+g3<-leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
 
-#2.4 Exportar mapa##
+#2.4 Exportar mapa## 
 
+gg_inset <- ggdraw() +
+  draw_plot(g2) +
+  draw_plot(g1) +
+  draw_plot(g3) 
 
+ggsave(plot = gg_inset,
+       filename = './myMap_inset.png', units = 'in', width = 8, height = 10, dpi = 300)
+ 
+gg_inset<-ggdraw()
+ draw_plot(g1)+(g2)+(g3)
+ ggsave(plot=gg_inset, fillname="./mapa")
+ 
+ ggplot() + # Crea un objeto ggplot a partir del objeto mex_map
+  geom_sf(data=parques, fill="white")
+
+ggplot2(data=parques)+grom_sf()
+png("mapa_estaurantes.png")
+leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
 ###################################3. Web-scraping y procesamiento de texto#####################################################
 
 
@@ -90,7 +106,7 @@ Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que
 Parrafos
 as.character(Parrafos)
 
-
+#Para crear las nubes de palabras use  la instrucciones de https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
 docs <- Corpus(VectorSource(Parrafos)) 
 docs <- docs %>%
   tm_map(removeNumbers) %>%
@@ -104,8 +120,7 @@ matrix <- as.matrix(dtm)
 words <- sort(rowSums(matrix),decreasing=TRUE) 
 df <- data.frame(word = names(words),freq=words)
 set.seed(1234) # for reproducibility 
-
-png("./output/nube_palabras.png")
+png("./output/nube_palabras.png") #Descargamos nuetra nube de palabras
 wordcloud(words = df$word, freq = df$freq, min.freq = 2, max.words=50, scale=c(2, .5), random.order=FALSE, rot.per=0.15,colors=brewer.pal(8, "Dark2") )
 
 

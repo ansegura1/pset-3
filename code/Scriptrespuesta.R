@@ -56,8 +56,8 @@ MOQ <- geocode_OSM("Museo del Oro Quimbaya, Armenia", as.sf=T)
 leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
 
 #2.4 Exportar mapa##
-
-
+png("mapa_estaurantes.png")
+leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
 ###################################3. Web-scraping y procesamiento de texto#####################################################
 
 
@@ -90,7 +90,7 @@ Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que
 Parrafos
 as.character(Parrafos)
 
-
+#Para crear las nubes de palabras use  la instrucciones de https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
 docs <- Corpus(VectorSource(Parrafos)) 
 docs <- docs %>%
   tm_map(removeNumbers) %>%
@@ -104,8 +104,7 @@ matrix <- as.matrix(dtm)
 words <- sort(rowSums(matrix),decreasing=TRUE) 
 df <- data.frame(word = names(words),freq=words)
 set.seed(1234) # for reproducibility 
-
-png("./output/nube_palabras.png")
+png("./output/nube_palabras.png") #Descargamos nuetra nube de palabras
 wordcloud(words = df$word, freq = df$freq, min.freq = 2, max.words=50, scale=c(2, .5), random.order=FALSE, rot.per=0.15,colors=brewer.pal(8, "Dark2") )
 
 

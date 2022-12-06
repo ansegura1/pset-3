@@ -12,11 +12,11 @@ options(install.lock = FALSE)
 
 ###Instalar librerias##
 require(pacman) 
-
 #install.packages("rlang")#Fue necesario intalar rlang para permitir que el script fucionara
-install.packages("tm") #Tm y wordcloud se descargan para crear la nube de palabras
-install.packages("wordcloud")
-p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, tm,wordcloud,dplyr,readr) # Llamamos las librerias  necesarias para el taller##
+#install.packages('ggspatial')#Paquete necesario para generar flechas del norte en los mapas
+#install.packages("tm") #Tm y wordcloud se descargan para crear la nube de palabras
+#install.packages("wordcloud")
+p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, tm,wordcloud,dplyr,readr, ggspatial) # Llamamos las librerias  necesarias para el taller##
 
 
 
@@ -54,6 +54,10 @@ dt3 <- data.frame(Modelo="m3_price",Variables=var_names, RegressionCoefficients=
 
 #Conseguir tablas de los tres modelos
 dt_resultados <- rbind(dt1,dt2,dt3)
+
+#Generar grafico 
+
+
 #Exportar 
 export(x=dt_resultados, rowNames=FALSE , file="output/resultados_regresiones.xlsx") 
 
@@ -64,10 +68,10 @@ export(x=dt_resultados, rowNames=FALSE , file="output/resultados_regresiones.xls
 
 available_features() %>% head(100)
 available_tags("amenity") %>% head(20)
-opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el poligono de Armenia##
+opq(bbox = getbb("Armeniaciudad Colombia")) # Vamos a obtener la caja de coordenada que contiene el poligono de Armenia##
 ## Datos de los restaurantes en Armenia
 osm = opq(bbox = getbb("Armenia Colombia")) %>%
-  add_osm_feature(key="amenity" , value="restaurant") #En internet encontramos cÃ³mo encontrar los datos de los restaurantes en openstreetmap. (https://wiki.openstreetmap.org/wiki/Tag:amenity%3Drestaurant)
+  add_osm_feature(key="amenity" , value="restaurant") #Para determinar la ubicacion de los datos de los restaurantes en openstreetmap usamos :https://wiki.openstreetmap.org/wiki/Tag:amenity%3Drestaurant)
 class(osm)
 osm_sf = osm %>% osmdata_sf() ## extraer Simple Features Collection
 osm_sf
@@ -78,7 +82,6 @@ restaurant = osm_sf$osm_points %>% select(osm_id,amenity)#Obtenemos el objeto
 parques <- opq(bbox = getbb("Armenia Colombia")) %>%
   add_osm_feature(key = "leisure", value = "park") %>%
   osmdata_sf() %>% .$osm_polygons %>% select(osm_id,name)
-
 
 ## 2.2 Visualizar  los datos##
 
@@ -97,7 +100,28 @@ MOQ <- geocode_OSM("Museo del Oro Quimbaya, Armenia", as.sf=T)
 g3<-leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
 g3
 #2.4 Exportar mapa## 
+ar <- opq(bbox = getbb("Armenia Colombia")) %>%
+  add_osm_feature(key="boundary", value="administrative") %>% #cargando las coordenadas de Armenia
+  osmdata_sf()
+ar <- ar$osm_multipolygons %>% subset(admin_level==8)#Buscamos para Colombia a que nivel adminsitrativos estan las ciudades https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative
 
+ggplot() + geom_sf(data=ar) #Revisamos que Armenia quede bien cargado
+
+#Mapa
+png("output/mapa_amenities.png")
+
+# Para generar la estrella del norte y las escalas utilizamos ggspatial https://mappinggis.com/2019/07/creacion-de-mapas-con-r-y-ggplot2/
+
+ggplot(data = ar) +
+  geom_sf(color='black') +
+  xlab("Longitud") + ylab("Latitud") +
+  ggtitle("Mapa de  Armenia: Parques,restaurantes y museo quimbaya") +
+  geom_sf(data=restaurant, color = 'red')+
+  geom_sf(data=parques, color = 'blue')+
+  geom_sf(data=MOQ, color = 'yellow')+
+  annotation_scale() +
+  annotation_north_arrow(location='grid')+
+  theme_bw()
 
 
 ###################################3. Web-scraping y procesamiento de texto#####################################################
@@ -130,7 +154,7 @@ export(x=departamentos , file="output/tabla_departamento.xlsx")
 Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que estan con la etiqueta p
 Parrafos
 as.character(Parrafos)
-
+#Para generar la nube de palabras utilizaremos como guia https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
 docs <- Corpus(VectorSource(Parrafos)) 
 docs <- docs %>%
   tm_map(removeNumbers) %>%

@@ -1,22 +1,62 @@
 ##################################Angela Segura Cod. 201619956   R version 4.1.3 ############################################
 
+
 ##Taller Pset_3####
 
 ###Crear directorio de trabajo##
 dir.create("code") #Creamos carpeta llamada code, donde guardaremos el script
 dir.create("output") #Creamos la carpeta output para los datos procesados
 list.files() ## Revisamos con que carpetas estamos trabajando#
+options(install.lock = FALSE)
 ##El script lo guardamos manualmente en la carpeta de code con el nombre Scriptrespuesta##
 
 ###Instalar librerias##
 require(pacman) 
+
+#install.packages("rlang")#Fue necesario intalar rlang para permitir que el script fucionara
 install.packages("tm") #Tm y wordcloud se descargan para crear la nube de palabras
 install.packages("wordcloud")
-p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, tm,wordcloud,dplyr) # Llamamos las librerias  necesarias para el taller##
+p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, tm,wordcloud,dplyr,readr) # Llamamos las librerias  necesarias para el taller##
 
 
 
 #########################################1.Regresiones#######################################################
+#1.1 Estimaciones#
+
+data_regresiones<-import(file ="input/data_regresiones.rds" ) #Importo la base de datos data_regresiones
+summary(data_regresiones)
+#Modelo 1
+m1_price<-lm(price~dist_park+surface_total+luces_2021+rooms+bathrooms, data=data_regresiones)#Regresion 1 por la cual quiero determinar el precio
+summary(m1_price)#Ver resultado de la regresion
+#Modelo 2 
+m2_price<-lm(price~dist_park+surface_total+dist_cbd +rooms+bathrooms, data=data_regresiones)#Regresion 2 por la cual quiero determinar el precio
+summary(m2_price)#Ver resultado de la regresion
+#Modelo 3
+m3_price<-lm(price~dist_park+surface_total +rooms+bathrooms+dist_cole, data=data_regresiones)#Regresion 3 por la cual quiero determinar el precio
+summary(m3_price)#Ver resultado de la regresion
+
+#1.2 Presentar resultados#
+
+#Tabla para el modelo 1
+var_names=names(coef(m1_price))
+coef_vals=coef(m1_price)
+dt1 <- data.frame(Modelo="m1_price",Variables=var_names, RegressionCoefficients=coef_vals)
+
+#Tabla para el modelo 2
+var_names=names(coef(m2_price))
+coef_vals=coef(m1_price)
+dt2 <- data.frame(Modelo="m2_price",Variables=var_names, RegressionCoefficients=coef_vals)
+
+#Tabla para el modelo 3
+var_names=names(coef(m3_price))
+coef_vals=coef(m3_price)
+dt3 <- data.frame(Modelo="m3_price",Variables=var_names, RegressionCoefficients=coef_vals)
+
+#Conseguir tablas de los tres modelos
+dt_resultados <- rbind(dt1,dt2,dt3)
+#Exportar 
+export(x=dt_resultados, rowNames=FALSE , file="output/resultados_regresiones.xlsx") 
+
 
 ####################################################2. Datos espaciales######################################################
 
@@ -24,7 +64,7 @@ p_load(tidyverse, rio,skimr,tmaptools, sf, leaflet, rvest, xml2, osmdata, ggsn, 
 
 available_features() %>% head(100)
 available_tags("amenity") %>% head(20)
-opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el polÃ­gono de Armenia##
+opq(bbox = getbb("Armenia Colombia")) # Vamos a obtener la caja de coordenada que contiene el poligono de Armenia##
 ## Datos de los restaurantes en Armenia
 osm = opq(bbox = getbb("Armenia Colombia")) %>%
   add_osm_feature(key="amenity" , value="restaurant") #En internet encontramos cÃ³mo encontrar los datos de los restaurantes en openstreetmap. (https://wiki.openstreetmap.org/wiki/Tag:amenity%3Drestaurant)
@@ -43,23 +83,24 @@ parques <- opq(bbox = getbb("Armenia Colombia")) %>%
 ## 2.2 Visualizar  los datos##
 
 #restaurantes
-leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
+g1<-leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
+g1
 #parques
-leaflet() %>% addTiles() %>% addPolygons(data=parques, col="blue")
-
+g2<-leaflet() %>% addTiles() %>% addPolygons(data=parques, col="blue")
+g2
 
 #2.3 Geocodificar direcciones## 
 
 #Museo del oro Qumbaya
 MOQ <- geocode_OSM("Museo del Oro Quimbaya, Armenia", as.sf=T) 
 #Pintar el punto del museo del Oro Quimbaya
-leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
+g3<-leaflet() %>% addTiles() %>% addCircleMarkers(data=MOQ , col="yellow")
+g3
+#2.4 Exportar mapa## 
 
-#2.4 Exportar mapa##
-png("mapa_estaurantes.png")
-leaflet() %>% addTiles() %>% addCircles(data=restaurant , col="red")
+
+
 ###################################3. Web-scraping y procesamiento de texto#####################################################
-
 
 browseURL("https://es.wikipedia.org/wiki/Departamentos_de_Colombia") #Para el punto 3 vamos a usar la pagina de departamentos de Colombia 
 
@@ -90,7 +131,6 @@ Parrafos<- my_html %>% html_elements("p") %>% html_text() ### Ver los textos que
 Parrafos
 as.character(Parrafos)
 
-#Para crear las nubes de palabras use  la instrucciones de https://towardsdatascience.com/create-a-word-cloud-with-r-bde3e7422e8a
 docs <- Corpus(VectorSource(Parrafos)) 
 docs <- docs %>%
   tm_map(removeNumbers) %>%
@@ -99,13 +139,16 @@ docs <- docs %>%
 docs <- tm_map(docs, content_transformer(tolower))
 docs <- tm_map(docs, removeWords, stopwords("spanish"))
 
+
 dtm <- TermDocumentMatrix(docs) 
 matrix <- as.matrix(dtm) 
 words <- sort(rowSums(matrix),decreasing=TRUE) 
 df <- data.frame(word = names(words),freq=words)
 set.seed(1234) # for reproducibility 
-png("./output/nube_palabras.png") #Descargamos nuetra nube de palabras
-wordcloud(words = df$word, freq = df$freq, min.freq = 2, max.words=50, scale=c(2, .5), random.order=FALSE, rot.per=0.15,colors=brewer.pal(8, "Dark2") )
+
+png("./output/nube_palabras.png")
+wordcloud(words = df$word, freq = df$freq, min.freq = 1,           max.words=200, random.order=FALSE, rot.per=0.35,            colors=brewer.pal(8, "Dark2"))
+
 
 
 
